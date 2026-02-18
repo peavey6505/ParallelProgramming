@@ -6,7 +6,71 @@ namespace TaskProgramming_S01
     {
         static void Main(string[] args)
         {
-          
+            try
+            {
+                ExceptionHandlingExample();
+            } catch(AggregateException ae)
+            {
+                foreach( var e in ae.InnerExceptions)
+                {
+                    Console.WriteLine($"Handled elsewhere: {e.GetType()}");
+                }
+            }
+        }
+
+        private static void ExceptionHandlingExample()
+        {
+            var t = Task.Factory.StartNew(() =>
+            {
+                throw new InvalidOperationException("Cant' do this ") { Source = "t" };
+            });
+
+            var t2 = Task.Factory.StartNew(() =>
+            {
+                throw new AccessViolationException("Can't access this") { Source = "t2" };
+            });
+
+
+
+
+            try
+            {
+                Task.WaitAll(t, t2);
+            }
+            catch (AggregateException ae)
+            {
+                //foreach (var e in ae.InnerExceptions)
+                //{
+                //    Console.WriteLine($"Exception {e.GetType()} from {e.Source}"); //reporting exceptions
+                //}
+
+                ae.Handle(e =>
+                {
+                    if (e is InvalidOperationException)
+                    {
+                        Console.WriteLine("Invalid op!");
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                });
+            }
+
+
+
+            //try
+            //{
+            //    await Task.WhenAll(t, t2); // in this case only first thrown exception will be caught
+            //}
+            //catch
+            //{
+
+            //}
+
+            Console.WriteLine("Program is done");
+            Console.ReadKey();
         }
 
         static void RunExamples() {
