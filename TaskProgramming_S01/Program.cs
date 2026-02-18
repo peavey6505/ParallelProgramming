@@ -4,8 +4,35 @@
     {
         static void Main(string[] args)
         {
+           
+            
+        }
+
+        static void RunExamples() {
+
             CancellationTokenSourceExample();
             CompositeCancellationTokensExample();
+            WaitForTimeToPassExample();
+        }
+
+        static void WaitForTimeToPassExample()
+        {
+            var cts = new CancellationTokenSource();
+            var token = cts.Token;
+
+            var t = new Task(() =>
+            {
+                //Thread.Sleep(); // oddaje wątek do puli wątków, ale nie jest to zalecane, bo wątek jest blokowany i nie może być wykorzystany do innych zadań
+                //SpinWait.SpinUntil(); // nie blokuje wątku, ale zużywa CPU, więc jest to dobre rozwiązanie dla krótkich operacji, zużywa CPU, nie robi context switching
+                Console.WriteLine("Press anything. 5secs to disarm");
+                bool cancelled = token.WaitHandle.WaitOne(5000); // czeka na sygnał anulowania lub upływ czasu
+                Console.WriteLine(cancelled ? "Disarmed" : "Boom!");
+
+            }, token);
+            t.Start();
+
+            Console.ReadKey();
+            cts.Cancel();
         }
 
         static void CompositeCancellationTokensExample()
