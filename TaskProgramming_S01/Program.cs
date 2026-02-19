@@ -1,11 +1,139 @@
-﻿namespace TaskProgramming_S01
+﻿using System.Net.NetworkInformation;
+
+namespace TaskProgramming_S01
 {
     internal class Program
     {
         static void Main(string[] args)
         {
+            try
+            {
+                ExceptionHandlingExample();
+            } catch(AggregateException ae)
+            {
+                foreach( var e in ae.InnerExceptions)
+                {
+                    Console.WriteLine($"Handled elsewhere: {e.GetType()}");
+                }
+            }
+        }
+
+        private static void ExceptionHandlingExample()
+        {
+            var t = Task.Factory.StartNew(() =>
+            {
+                throw new InvalidOperationException("Cant' do this ") { Source = "t" };
+            });
+
+            var t2 = Task.Factory.StartNew(() =>
+            {
+                throw new AccessViolationException("Can't access this") { Source = "t2" };
+            });
+
+
+
+
+            try
+            {
+                Task.WaitAll(t, t2);
+            }
+            catch (AggregateException ae)
+            {
+                //foreach (var e in ae.InnerExceptions)
+                //{
+                //    Console.WriteLine($"Exception {e.GetType()} from {e.Source}"); //reporting exceptions
+                //}
+
+                ae.Handle(e =>
+                {
+                    if (e is InvalidOperationException)
+                    {
+                        Console.WriteLine("Invalid op!");
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                });
+            }
+
+
+
+            //try
+            //{
+            //    await Task.WhenAll(t, t2); // in this case only first thrown exception will be caught
+            //}
+            //catch
+            //{
+
+            //}
+
+            Console.WriteLine("Program is done");
+            Console.ReadKey();
+        }
+
+        static void RunExamples() {
+
             CancellationTokenSourceExample();
             CompositeCancellationTokensExample();
+            WaitForTimeToPassExample();
+            WaitingForTaskExample();
+        }
+
+        static void WaitingForTaskExample()
+        {
+            var cts = new CancellationTokenSource();
+            var token = cts.Token;
+
+
+
+            var t = new Task(() =>
+            {
+                Console.WriteLine("I take 5 secs");
+
+                for (int i = 0; i < 5; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    Thread.Sleep(1000);
+                    Console.WriteLine($"{i + 1} sec");
+                }
+                Console.WriteLine("Im done");
+
+            }, token);
+            t.Start();
+
+
+            Task t2 = Task.Factory.StartNew(() =>
+            {
+                Thread.Sleep(3000);
+            }, token);
+
+            //Task.WaitAll(t, t2); // waits for all tasks to complete or be cancelled
+            //Task.WaitAny(t, t2); // waits for any task to complete or be cancelled
+            Task.WaitAll(new[] { t, t2 }, 4000, token); // waits for all tasks to complete or be cancelled, with a timeout
+
+            Console.WriteLine($"Task t status: {t.Status}");
+            Console.WriteLine($"Task t2 status: {t2.Status}");
+        }
+        static void WaitForTimeToPassExample()
+        {
+            var cts = new CancellationTokenSource();
+            var token = cts.Token;
+
+            var t = new Task(() =>
+            {
+                //Thread.Sleep(); // oddaje wątek do puli wątków, ale nie jest to zalecane, bo wątek jest blokowany i nie może być wykorzystany do innych zadań
+                //SpinWait.SpinUntil(); // nie blokuje wątku, ale zużywa CPU, więc jest to dobre rozwiązanie dla krótkich operacji, zużywa CPU, nie robi context switching
+                Console.WriteLine("Press anything. 5secs to disarm");
+                bool cancelled = token.WaitHandle.WaitOne(5000); // czeka na sygnał anulowania lub upływ czasu
+                Console.WriteLine(cancelled ? "Disarmed" : "Boom!");
+
+            }, token);
+            t.Start();
+
+            Console.ReadKey();
+            cts.Cancel();
         }
 
         static void CompositeCancellationTokensExample()
