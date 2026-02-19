@@ -66,25 +66,52 @@ namespace DataSharingAndSynchronization
     }
     internal class Program
     {
+        static Random random = new Random();
+        static ReaderWriterLockSlim padlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         static void Main(string[] args)
         {
-            const string appName = "MyApp";
-            Mutex mutex;
+            int x = 0;
+            var tasks = new List<Task>();
+            for (int i = 0; i< 10; i++)
+            {
+                tasks.Add(Task.Factory.StartNew(() =>
+                {
+                    padlock.EnterReadLock();
+                    padlock.EnterReadLock();
+                    Console.WriteLine($"Entered readlock x = {x}");
+                    Thread.Sleep(5000);
+
+                    padlock.ExitReadLock();
+                    padlock.ExitReadLock();
+
+                    Console.WriteLine($"Exited read lock, x = {x}");
+                }));
+            }
 
             try
             {
-                mutex = Mutex.OpenExisting(appName);
-                Console.WriteLine($"Sorry {appName} already running");
-            } 
-            catch (WaitHandleCannotBeOpenedException e)
+                Task.WaitAll(tasks.ToArray());
+            }
+            catch (AggregateException ae)
             {
-                Console.WriteLine($"We can run the program");
-                mutex = new Mutex(false, appName);
-
+                ae.Handle(e =>
+                {
+                    Console.WriteLine(e);
+                    return true;
+                });
             }
 
-            Console.ReadKey();
-            mutex.ReleaseMutex();
+            while (true)
+            {
+                Console.ReadKey();
+                padlock.EnterWriteLock();
+                Console.Write("Writelock acquired");
+                int newValue = random.Next(10);
+                x = newValue;
+                Console.WriteLine($"Set x = {x}");
+                padlock.ExitWriteLock();
+                Console.WriteLine("WriteLock release");
+            }
         }
 
 
