@@ -1,25 +1,42 @@
-﻿namespace DataSharingAndSynchronization
+﻿using System.Threading;
+using System.Threading.Tasks;
+
+namespace DataSharingAndSynchronization
 {
     public class BankAccount 
     {
         private int balance;
 
         public int Balance { get => balance; private set => balance = value; }
-
         public void Deposit(int amount)
         {
-            Interlocked.Add(ref balance, amount);
-            //Interlocked.MemoryBarrier(); // ensures avoid reordering
+           balance += amount;
 
         }
 
         public void Withdraw(int amount)
         {
-            Interlocked.Add(ref balance, -amount);
+           balance -= amount;
         }
 
-        /*
-        // LOCK EXAMPLE
+
+
+
+        // INTERLOCKED EXAMPLE
+        //public void Deposit(int amount)
+        //{
+        //    Interlocked.Add(ref balance, amount);
+        //    //Interlocked.MemoryBarrier(); // ensures avoid reordering
+
+        //}
+
+        //public void Withdraw(int amount)
+        //{
+        //    Interlocked.Add(ref balance, -amount);
+        //}
+
+
+        /*// LOCK EXAMPLE
         public object padlock = new object();
         public void Deposit(int amount)
         {
@@ -46,16 +63,65 @@
     {
         static void Main(string[] args)
         {
+
+            //LockRecursion(5);
+            //SpinLockExample();
+
+        }
+        static SpinLock sl = new SpinLock(true);
+
+        static void LockRecursion(int x) // example why do not do it
+        {
+            bool lockTaken = false;
+
+            try
+            {
+                sl.Enter(ref lockTaken);
+            } 
+            catch(LockRecursionException e)
+            {
+                Console.WriteLine(e);
+            }
+            finally
+            {
+                if (lockTaken)
+                {
+                    Console.WriteLine($"Took a lock x = {x}");
+                    LockRecursion(x - 1);
+                    sl.Exit();
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to take a lock, x= {x}");
+                }
+            }
+        }
+        static void SpinLockExample()
+        {
             var tasks = new List<Task>();
             var ba = new BankAccount();
 
-            for (int i = 0; i< 10; i++)
+            SpinLock spinLock = new SpinLock();
+
+            for (int i = 0; i < 10; i++)
             {
                 tasks.Add(Task.Factory.StartNew(() =>
                 {
                     for (int j = 0; j < 1000; j++)
                     {
-                        ba.Deposit(100);
+                        var lockTaken = false; // variable for confirmation if the lock is taken or not
+                        try
+                        {
+                            spinLock.Enter(ref lockTaken); // if lock is not taken, it will wait and try again until it can take the lock
+                            ba.Deposit(100);
+                        }
+                        finally
+                        {
+                            if (lockTaken) // if the lock is taken, then we can release it, otherwise we should not call Exit() because it will throw an exception
+                            {
+                                spinLock.Exit(); // release the lock
+                            }
+                        }
                     }
                 }));
 
@@ -63,14 +129,25 @@
                 {
                     for (int j = 0; j < 1000; j++)
                     {
-                        ba.Withdraw(100);
+                        var lockTaken = false;
+                        try
+                        {
+                            spinLock.Enter(ref lockTaken);
+                            ba.Withdraw(100);
+                        }
+                        finally
+                        {
+                            if (lockTaken)
+                            {
+                                spinLock.Exit();
+                            }
+                        }
                     }
                 }));
             }
 
             Task.WaitAll(tasks.ToArray());
             Console.WriteLine($"Final balance is {ba.Balance} ");
-
         }
     }
 }
