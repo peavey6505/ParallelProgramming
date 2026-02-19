@@ -4,16 +4,31 @@ namespace ConcurrentCollections
 {
     internal class Program
     {
-        private static ConcurrentDictionary<string,string> capitals = new ConcurrentDictionary<string, string>();
 
-        public static void AddParis()
-        {
-            bool success = capitals.TryAdd("France", "Paris");
-            string who = Task.CurrentId.HasValue ? $"Task {Task.CurrentId.Value}" : "Main thread";
-            Console.WriteLine($"{who} {(success ? "added" : "could not add")} the capital of France");
-        }
+      
         static void Main(string[] args)
         {
+            var q = new ConcurrentQueue<int>();
+            q.Enqueue(1);
+            q.Enqueue(2);
+
+            int result;
+            if(q.TryDequeue(out result))
+            {
+                Console.WriteLine($"Dequeued {result}");
+            }
+
+            if(q.TryPeek(out result))
+            {
+                Console.WriteLine($"Front element is {result}");
+            }
+           
+        }
+
+        private static ConcurrentDictionary<string, string> capitals = new ConcurrentDictionary<string, string>();
+        static void ConcurrentDircionaryExample()
+        {
+
             Task.Factory.StartNew(() => AddParis()).Wait();
             AddParis();
 
@@ -37,7 +52,12 @@ namespace ConcurrentCollections
                 Console.WriteLine($"Couldn't remove {toRemove}");
             }
 
-            
+        }
+        public static void AddParis()
+        {
+            bool success = capitals.TryAdd("France", "Paris");
+            string who = Task.CurrentId.HasValue ? $"Task {Task.CurrentId.Value}" : "Main thread";
+            Console.WriteLine($"{who} {(success ? "added" : "could not add")} the capital of France");
         }
     }
 }
