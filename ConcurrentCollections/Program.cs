@@ -4,36 +4,31 @@ namespace ConcurrentCollections
 {
     internal class Program
     {
+        static BlockingCollection<int> messages = new BlockingCollection<int>(new ConcurrentBag<int>(), 10);
+
+        static CancellationTokenSource cts = new CancellationTokenSource();
+        static Random random = new Random();
 
         static void Main(string[] args)
         {
-            var bag = new ConcurrentBag<int>(); // no FIFO, LIFO, or any other order
-            var tasks = new List<Task>();
+            Task.Factory.StartNew(() => ProduceAndConsume(), cts.Token);
+            Console.ReadKey();
+            cts.Cancel();
+        }
 
-            for (int i = 0; i < 10; i++)
+        static void ProduceAndConsume()
+        {
+            var producer = Task.Factory.StartNew(RunProducer, cts.Token);
+            var consumer = Task.Factory.StartNew(RunConsumer, cts.Token);
+
+            try
             {
-                var i1 = i;
-                tasks.Add(Task.Factory.StartNew(() =>
-                {
-                    bag.Add(i1);
-                    Console.WriteLine($"Task: {Task.CurrentId} has added: {i1}");
-                    int result;
-                    if (bag.TryPeek(out result))
-                    {
-                        Console.WriteLine($"Task: {Task.CurrentId} has peeked the value: {result}");
-                    }
-                }));
+                Task.WaitAll(new[] { producer, consumer }, cts.Token);
             }
-
-
-            Task.WaitAll(tasks.ToArray());
-
-            int last;
-            if(bag.TryTake(out last))
+            catch (AggregateException ae)
             {
-                Console.WriteLine($"Took {last} from the bag");
+                ae.Handle(e => true);
             }
-
         }
 
         public static void AddParis()
@@ -87,7 +82,8 @@ namespace ConcurrentCollections
                 Console.WriteLine($"Front element is {result}");
             }
         }
-        static void ConcurrentStackExample() {
+        static void ConcurrentStackExample()
+        {
             var stack = new ConcurrentStack<int>();
             stack.Push(1);
             stack.Push(2);
@@ -114,6 +110,57 @@ namespace ConcurrentCollections
             }
 
         }
+        static void ConcurrentBagExample()
+        {
+            var bag = new ConcurrentBag<int>(); // no FIFO, LIFO, or any other order
+            var tasks = new List<Task>();
 
+            for (int i = 0; i < 10; i++)
+            {
+                var i1 = i;
+                tasks.Add(Task.Factory.StartNew(() =>
+                {
+                    bag.Add(i1);
+                    Console.WriteLine($"Task: {Task.CurrentId} has added: {i1}");
+                    int result;
+                    if (bag.TryPeek(out result))
+                    {
+                        Console.WriteLine($"Task: {Task.CurrentId} has peeked the value: {result}");
+                    }
+                }));
+            }
+
+
+            Task.WaitAll(tasks.ToArray());
+
+            int last;
+            if (bag.TryTake(out last))
+            {
+                Console.WriteLine($"Took {last} from the bag");
+            }
+
+        }
+        static void RunProducer()
+        {
+            while (true)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+                int i = random.Next(100);
+                messages.Add(i);
+                Console.WriteLine($"+ {i}\t");
+                Thread.Sleep(random.Next(100));
+            }
+        }
+
+        static void RunConsumer()
+        {
+           foreach(var item in messages.GetConsumingEnumerable(cts.Token))
+            {
+                cts.Token.ThrowIfCancellationRequested();
+
+                Console.WriteLine($"- {item}\t");
+                Thread.Sleep(random.Next(1000));
+            }
+        }
     }
 }
