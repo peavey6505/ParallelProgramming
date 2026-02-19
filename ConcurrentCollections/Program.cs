@@ -5,24 +5,33 @@ namespace ConcurrentCollections
     internal class Program
     {
 
-      
         static void Main(string[] args)
         {
-            var q = new ConcurrentQueue<int>();
-            q.Enqueue(1);
-            q.Enqueue(2);
+           var stack = new ConcurrentStack<int>();
+            stack.Push(1);
+            stack.Push(2);
+            stack.Push(3);
+            stack.Push(4);
 
             int result;
-            if(q.TryDequeue(out result))
+
+            if (stack.TryPeek(out result))
             {
-                Console.WriteLine($"Dequeued {result}");
+                Console.WriteLine($"Top element is {result}");
             }
 
-            if(q.TryPeek(out result))
+            if (stack.TryPop(out result))
             {
-                Console.WriteLine($"Front element is {result}");
+                Console.WriteLine($"Popped {result}");
             }
-           
+
+            var items = new int[5];
+            if(stack.TryPopRange(items, 0, 5) > 0)
+            {
+                var text = string.Join(", ", items.Select(i => i.ToString()));
+                Console.WriteLine($"Popped these items: {text}");
+            }
+
         }
 
         private static ConcurrentDictionary<string, string> capitals = new ConcurrentDictionary<string, string>();
@@ -52,6 +61,23 @@ namespace ConcurrentCollections
                 Console.WriteLine($"Couldn't remove {toRemove}");
             }
 
+        }
+        static void ConcurrentQueueExample()
+        {
+            var q = new ConcurrentQueue<int>();
+            q.Enqueue(1);
+            q.Enqueue(2);
+
+            int result;
+            if (q.TryDequeue(out result))
+            {
+                Console.WriteLine($"Dequeued {result}");
+            }
+
+            if (q.TryPeek(out result))
+            {
+                Console.WriteLine($"Front element is {result}");
+            }
         }
         public static void AddParis()
         {
