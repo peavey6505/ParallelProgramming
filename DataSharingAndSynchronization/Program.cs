@@ -2,9 +2,21 @@
 {
     public class BankAccount 
     {
+        private int balance;
 
-        public int Balance { get; private set; }
+        public int Balance { get => balance; private set => balance = value; }
 
+        public void Deposit(int amount)
+        {
+            Interlocked.Add(ref balance, amount);
+            //Interlocked.MemoryBarrier(); // ensures avoid reordering
+
+        }
+
+        public void Withdraw(int amount)
+        {
+            Interlocked.Add(ref balance, -amount);
+        }
 
         /*
         // LOCK EXAMPLE
