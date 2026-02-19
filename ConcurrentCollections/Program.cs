@@ -7,35 +7,43 @@ namespace ConcurrentCollections
 
         static void Main(string[] args)
         {
-           var stack = new ConcurrentStack<int>();
-            stack.Push(1);
-            stack.Push(2);
-            stack.Push(3);
-            stack.Push(4);
+            var bag = new ConcurrentBag<int>(); // no FIFO, LIFO, or any other order
+            var tasks = new List<Task>();
 
-            int result;
-
-            if (stack.TryPeek(out result))
+            for (int i = 0; i < 10; i++)
             {
-                Console.WriteLine($"Top element is {result}");
+                var i1 = i;
+                tasks.Add(Task.Factory.StartNew(() =>
+                {
+                    bag.Add(i1);
+                    Console.WriteLine($"Task: {Task.CurrentId} has added: {i1}");
+                    int result;
+                    if (bag.TryPeek(out result))
+                    {
+                        Console.WriteLine($"Task: {Task.CurrentId} has peeked the value: {result}");
+                    }
+                }));
             }
 
-            if (stack.TryPop(out result))
-            {
-                Console.WriteLine($"Popped {result}");
-            }
 
-            var items = new int[5];
-            if(stack.TryPopRange(items, 0, 5) > 0)
+            Task.WaitAll(tasks.ToArray());
+
+            int last;
+            if(bag.TryTake(out last))
             {
-                var text = string.Join(", ", items.Select(i => i.ToString()));
-                Console.WriteLine($"Popped these items: {text}");
+                Console.WriteLine($"Took {last} from the bag");
             }
 
         }
 
+        public static void AddParis()
+        {
+            bool success = capitals.TryAdd("France", "Paris");
+            string who = Task.CurrentId.HasValue ? $"Task {Task.CurrentId.Value}" : "Main thread";
+            Console.WriteLine($"{who} {(success ? "added" : "could not add")} the capital of France");
+        }
         private static ConcurrentDictionary<string, string> capitals = new ConcurrentDictionary<string, string>();
-        static void ConcurrentDircionaryExample()
+        static void ConcurrentDictionaryExample()
         {
 
             Task.Factory.StartNew(() => AddParis()).Wait();
@@ -79,11 +87,33 @@ namespace ConcurrentCollections
                 Console.WriteLine($"Front element is {result}");
             }
         }
-        public static void AddParis()
-        {
-            bool success = capitals.TryAdd("France", "Paris");
-            string who = Task.CurrentId.HasValue ? $"Task {Task.CurrentId.Value}" : "Main thread";
-            Console.WriteLine($"{who} {(success ? "added" : "could not add")} the capital of France");
+        static void ConcurrentStackExample() {
+            var stack = new ConcurrentStack<int>();
+            stack.Push(1);
+            stack.Push(2);
+            stack.Push(3);
+            stack.Push(4);
+
+            int result;
+
+            if (stack.TryPeek(out result))
+            {
+                Console.WriteLine($"Top element is {result}");
+            }
+
+            if (stack.TryPop(out result))
+            {
+                Console.WriteLine($"Popped {result}");
+            }
+
+            var items = new int[5];
+            if (stack.TryPopRange(items, 0, 5) > 0)
+            {
+                var text = string.Join(", ", items.Select(i => i.ToString()));
+                Console.WriteLine($"Popped these items: {text}");
+            }
+
         }
+
     }
 }
